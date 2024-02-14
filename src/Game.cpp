@@ -12,11 +12,11 @@ Game::Game(GLFWwindow *window) : App(window) {}
 
 void Game::init(int paramSample)
 {
+    App::init();
+
     setIcon("ressources/icon.png");
 
     setController(&spectator);
-
-    scene.useBindlessTextures = true;
 
     ambientLight = vec3(0.1);
 
