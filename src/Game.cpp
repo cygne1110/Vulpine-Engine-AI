@@ -4,6 +4,7 @@
 #include <CompilingOptions.hpp>
 #include <MathsUtils.hpp>
 #include <Audio.hpp>
+#include <Graph.hpp>
 
 #include <thread>
 #include <fstream>
@@ -40,7 +41,6 @@ void Game::init(int paramSample)
         myfile.close();
         camera.setState(buff);
     }
-
 
     /* Loading 3D Materials */
     depthOnlyMaterial = MeshMaterial(
@@ -115,6 +115,21 @@ void Game::init(int paramSample)
     fuiBatch->setMaterial(defaultSUIMaterial);
     fuiBatch->state.position.z = 0.0;
     fuiBatch->state.forceUpdate();
+
+    Graph testGraph(0);
+    testGraph.addNode(vec3(0, 0, 0));
+    testGraph.addNode(vec3(0.5, 0, 0));
+    testGraph.addNode(vec3(0, 1, 0));
+    testGraph.addNode(vec3(1, 1, 0));
+    testGraph.connectNodes(0, 1);
+    testGraph.connectNodes(0, 2);
+    testGraph.connectNodes(1, 3);
+    testGraph.connectNodes(2, 3);
+    testGraph.connectNodes(0, 3);
+    // testGraph.print();
+
+    std::deque<int> path = testGraph.shortestPath(0, 3);
+    // printPath(path);
 
     /* VSYNC and fps limit */
     globals.fpsLimiter.activate();
