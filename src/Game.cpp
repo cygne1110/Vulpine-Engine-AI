@@ -126,10 +126,10 @@ void Game::init(int paramSample)
     testGraph.connectNodes(1, 3);
     testGraph.connectNodes(2, 3);
     testGraph.connectNodes(0, 3);
-    // testGraph.print();
+    testGraph.print();
 
     std::deque<int> path = testGraph.shortestPath(0, 3);
-    // printPath(path);
+    printPath(path);
 
     /* VSYNC and fps limit */
     globals.fpsLimiter.activate();
@@ -238,7 +238,7 @@ void Game::mainloop()
             scene.add(f);
         }
 
-    int forestSize = 32;
+    int forestSize = 8;
     float treeScale = 0.5;
 
     ModelRef leaves = newModel(GameGlobals::PBRstencil);
