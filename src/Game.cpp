@@ -1,10 +1,12 @@
 #include <Game.hpp>
-#include <../Engine/include/Globals.hpp>
+#include <Globals.hpp>
 #include <GameObject.hpp>
 #include <CompilingOptions.hpp>
 #include <MathsUtils.hpp>
 #include <Audio.hpp>
-#include <Graph.hpp>
+#include <NavGraph.hpp>
+#include <Helpers.hpp>
+#include <EntityAI.hpp>
 
 #include <thread>
 #include <fstream>
@@ -116,20 +118,53 @@ void Game::init(int paramSample)
     fuiBatch->state.position.z = 0.0;
     fuiBatch->state.forceUpdate();
 
-    Graph testGraph(0);
-    testGraph.addNode(vec3(0, 0, 0));
-    testGraph.addNode(vec3(0.5, 0, 0));
-    testGraph.addNode(vec3(0, 1, 0));
-    testGraph.addNode(vec3(1, 1, 0));
-    testGraph.connectNodes(0, 1);
-    testGraph.connectNodes(0, 2);
-    testGraph.connectNodes(1, 3);
-    testGraph.connectNodes(2, 3);
-    testGraph.connectNodes(0, 3);
-    testGraph.print();
+    NavGraphRef graph(new NavGraph(0));
+    graph->addNode(vec3(0, 0, 0));
+    graph->addNode(vec3(1, 0, 0));
+    graph->addNode(vec3(1, 0, -1));
+    graph->addNode(vec3(4, 0, -1));
+    graph->addNode(vec3(4, 0, 0));
+    graph->addNode(vec3(2, 0, 0));
+    graph->addNode(vec3(2, 0, 1));
+    graph->addNode(vec3(4, 0, 1));
+    graph->addNode(vec3(0, 0, 2));
+    graph->addNode(vec3(1, 0, 2));
+    graph->addNode(vec3(1, 0, 3));
+    graph->addNode(vec3(2, 0, 3));
+    graph->addNode(vec3(2, 0, 2));
+    graph->addNode(vec3(3, 0, 3));
+    graph->addNode(vec3(3, 0, 2));
+    graph->addNode(vec3(4, 0, 3));
+    graph->addNode(vec3(4, 0, 2));
+    graph->connectNodes(0, 1);
+    graph->connectNodes(1, 2);
+    graph->connectNodes(2, 3);
+    graph->connectNodes(3, 4);
+    graph->connectNodes(4, 5);
+    graph->connectNodes(4, 7);
+    graph->connectNodes(5, 6);
+    graph->connectNodes(6, 7);
+    graph->connectNodes(0, 8);
+    graph->connectNodes(8, 9);
+    graph->connectNodes(9, 10);
+    graph->connectNodes(10, 11);
+    graph->connectNodes(11, 12);
+    graph->connectNodes(12, 14);
+    graph->connectNodes(13, 14);
+    graph->connectNodes(13, 15);
+    graph->connectNodes(16, 15);
+    graph->connectNodes(16, 7);
 
-    std::deque<int> path = testGraph.shortestPath(0, 3);
-    printPath(path);
+    vec3 start = vec3(0.0f, 0.0f, 0.0f);
+    vec3 end = vec3(3.0f, 0.0f, 2.0f);
+
+    Path path(start, end);
+    path.update(graph);
+
+    path.print();
+
+    scene.add(NavGraphHelperRef(new NavGraphHelper(graph)));
+    scene.add(PathHelperRef(new PathHelper(path, graph)));
 
     /* VSYNC and fps limit */
     globals.fpsLimiter.activate();
@@ -228,17 +263,18 @@ void Game::mainloop()
 
     int gridSize = 10;
     int gridScale = 10;
+    float floorY = -0.25;
     for (int i = -gridSize; i < gridSize; i++)
         for (int j = -gridSize; j < gridSize; j++)
         {
             ModelRef f = floor->copyWithSharedMesh();
             f->state
                 .scaleScalar(gridScale)
-                .setPosition(vec3(i * gridScale * 1.80, 0, j * gridScale * 1.80));
+                .setPosition(vec3(i * gridScale * 1.80, floorY, j * gridScale * 1.80));
             scene.add(f);
         }
 
-    int forestSize = 8;
+    int forestSize = 0.;
     float treeScale = 0.5;
 
     ModelRef leaves = newModel(GameGlobals::PBRstencil);
@@ -335,12 +371,24 @@ void Game::mainloop()
     alSource3f(musicSource.getHandle(), AL_DIRECTION, 0.0, 0.0, 0.0);
     */
 
-    ModelRef lanterne = newModel(GameGlobals::PBR);
-    lanterne->loadFromFolder("ressources/models/lantern/");
-    lanterne->state
-        .scaleScalar(0.01)
-        .setPosition(vec3(2, 2, 0));
-    scene.add(lanterne);
+    // ModelRef lanterne = newModel(GameGlobals::PBR);
+    // lanterne->loadFromFolder("ressources/models/lantern/");
+    // lanterne->state
+    //     .scaleScalar(0.01)
+    //     .setPosition(vec3(2, 2, 0));
+    // scene.add(lanterne);
+
+    // Test Entity
+    ObjectGroupRef EntityAIGroup = newObjectGroup();
+    EntityAIGroup->add(SphereHelperRef(new SphereHelper(vec3(1.0f, 0.0f, 0.0f), 0.5f)));
+
+    EntityRef entity = newEntity(
+        "ALSAK LIVE REACTION",
+        EntityModel(EntityAIGroup),
+        EntityPosition3D(vec3(0, 5, 0), 0.1f),
+        EntityDestination3D(vec3(5, 5, 5), true),
+        EntityPathfinding()
+    );
 
     /* Main Loop */
     while (state != AppState::quit)
@@ -401,6 +449,28 @@ void Game::mainloop()
         sun->shadowMap.bindTexture(0, 6);
         screenBuffer2D.bindTexture(0, 7);
         globals.drawFullscreenQuad();
+
+        // Move towards goal
+        System<EntityPosition3D, EntityDestination3D>([](Entity &entity){
+            auto &pos = entity.comp<EntityPosition3D>();
+            auto &dest = entity.comp<EntityDestination3D>();
+
+            // CLAMP THE DISTANCE YEP
+            if(dest.hasDestination) {
+                pos.direction = normalize(dest.destination - pos.position);
+                pos.position += pos.speed*pos.direction;
+            }
+        });
+
+        // Update model position
+        System<EntityModel, EntityPosition3D>([](Entity &entity){
+            entity.comp<EntityModel>()->state.setPosition(
+                entity.comp<EntityPosition3D>().position
+            );
+        });
+
+        /* ECS Garbage Collector */
+        ManageGarbage<EntityModel>();
 
         /* Main loop End */
         mainloopEndRoutine();
