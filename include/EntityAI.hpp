@@ -46,6 +46,7 @@ void Component<EntityDestination3D>::ComponentElem::clean();
 
 struct EntityPathfinding {
     Path path;
+    NavGraphRef graph;
 };
 
 COMPONENT(EntityPathfinding, AI, MAX_ENTITY);

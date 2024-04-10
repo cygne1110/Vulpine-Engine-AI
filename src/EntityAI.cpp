@@ -22,35 +22,37 @@ void Component<EntityModel>::ComponentElem::clean()
 template<>
 void Component<EntityPosition3D>::ComponentElem::init()
 {
-    // std::cout << "creating entity model " << entity->toStr();
+    // std::cout << "creating entity position " << entity->toStr();
 }
 
 template<>
 void Component<EntityPosition3D>::ComponentElem::clean()
 {
-    // std::cout << "deleting entity model " << entity->toStr();
+    // std::cout << "deleting entity position " << entity->toStr();
 }
 
 template<>
 void Component<EntityDestination3D>::ComponentElem::init()
 {
-    // std::cout << "creating entity model " << entity->toStr();
+    // std::cout << "creating entity destination " << entity->toStr();
 }
 
 template<>
 void Component<EntityDestination3D>::ComponentElem::clean()
 {
-    // std::cout << "deleting entity model " << entity->toStr();
+    // std::cout << "deleting entity destination " << entity->toStr();
 }
 
 template<>
 void Component<EntityPathfinding>::ComponentElem::init()
 {
-    // std::cout << "creating entity model " << entity->toStr();
+    // std::cout << "creating entity pathfinding " << entity->toStr();
+
+    entity->comp<EntityPathfinding>().path.update(entity->comp<EntityPathfinding>().graph);
 }
 
 template<>
 void Component<EntityPathfinding>::ComponentElem::clean()
 {
-    // std::cout << "deleting entity model " << entity->toStr();
+    // std::cout << "deleting entity pathfinding " << entity->toStr();
 }

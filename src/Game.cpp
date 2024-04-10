@@ -118,54 +118,6 @@ void Game::init(int paramSample)
     fuiBatch->state.position.z = 0.0;
     fuiBatch->state.forceUpdate();
 
-    NavGraphRef graph(new NavGraph(0));
-    graph->addNode(vec3(0, 0, 0));
-    graph->addNode(vec3(1, 0, 0));
-    graph->addNode(vec3(1, 0, -1));
-    graph->addNode(vec3(4, 0, -1));
-    graph->addNode(vec3(4, 0, 0));
-    graph->addNode(vec3(2, 0, 0));
-    graph->addNode(vec3(2, 0, 1));
-    graph->addNode(vec3(4, 0, 1));
-    graph->addNode(vec3(0, 0, 2));
-    graph->addNode(vec3(1, 0, 2));
-    graph->addNode(vec3(1, 0, 3));
-    graph->addNode(vec3(2, 0, 3));
-    graph->addNode(vec3(2, 0, 2));
-    graph->addNode(vec3(3, 0, 3));
-    graph->addNode(vec3(3, 0, 2));
-    graph->addNode(vec3(4, 0, 3));
-    graph->addNode(vec3(4, 0, 2));
-    graph->connectNodes(0, 1);
-    graph->connectNodes(1, 2);
-    graph->connectNodes(2, 3);
-    graph->connectNodes(3, 4);
-    graph->connectNodes(4, 5);
-    graph->connectNodes(4, 7);
-    graph->connectNodes(5, 6);
-    graph->connectNodes(6, 7);
-    graph->connectNodes(0, 8);
-    graph->connectNodes(8, 9);
-    graph->connectNodes(9, 10);
-    graph->connectNodes(10, 11);
-    graph->connectNodes(11, 12);
-    graph->connectNodes(12, 14);
-    graph->connectNodes(13, 14);
-    graph->connectNodes(13, 15);
-    graph->connectNodes(16, 15);
-    graph->connectNodes(16, 7);
-
-    vec3 start = vec3(0.0f, 0.0f, 0.0f);
-    vec3 end = vec3(3.0f, 0.0f, 2.0f);
-
-    Path path(start, end);
-    path.update(graph);
-
-    path.print();
-
-    scene.add(NavGraphHelperRef(new NavGraphHelper(graph)));
-    scene.add(PathHelperRef(new PathHelper(path, graph)));
-
     /* VSYNC and fps limit */
     globals.fpsLimiter.activate();
     globals.fpsLimiter.freq = 144.f;
@@ -378,17 +330,86 @@ void Game::mainloop()
     //     .setPosition(vec3(2, 2, 0));
     // scene.add(lanterne);
 
-    // Test Entity
-    ObjectGroupRef EntityAIGroup = newObjectGroup();
-    EntityAIGroup->add(SphereHelperRef(new SphereHelper(vec3(1.0f, 0.0f, 0.0f), 0.5f)));
+    NavGraphRef graph(new NavGraph(0));
 
-    EntityRef entity = newEntity(
-        "ALSAK LIVE REACTION",
-        EntityModel(EntityAIGroup),
-        EntityPosition3D(vec3(0, 5, 0), 0.1f),
-        EntityDestination3D(vec3(5, 5, 5), true),
-        EntityPathfinding()
-    );
+    int graphSize = 100;
+    for(int i = 0; i < graphSize; i++) {
+        for(int j = 0; j < graphSize; j++) {
+            
+            graph->addNode(vec3(i, 0, j));
+
+        }
+    }
+
+    for(int i = 0; i < graphSize-1; i++) {
+        for(int j = 0; j < graphSize-1; j++) {
+
+            int id = i*graphSize+j;
+            graph->connectNodes(id, id+1);
+            graph->connectNodes(id, id+graphSize);
+
+        }
+    }
+
+    for(int i = 0; i < graphSize-1; i++) {
+        graph->connectNodes((graphSize-1)+i*graphSize, (graphSize-1)+(i+1)*graphSize);
+        graph->connectNodes((graphSize)*(graphSize-1)+i, (graphSize)*(graphSize-1)+i+1);
+    }
+
+    // vec3 start = vec3(0.0f, 0.0f, 0.0f);
+    // vec3 end = vec3(3.0f, 0.0f, 2.0f);
+
+    // Path path(start, end);
+    // path.update(graph);
+
+    // path.print();
+
+    // scene.add(NavGraphHelperRef(new NavGraphHelper(graph)));
+    // scene.add(PathHelperRef(new PathHelper(path, graph)));
+
+    auto makeEntityAI = [](std::string entityName, vec3 startPos, vec3 dest, vec3 color, NavGraphRef graph) -> EntityRef {
+        ObjectGroupRef EntityAIGroup = newObjectGroup();
+        EntityAIGroup->add(SphereHelperRef(new SphereHelper(color, 0.5f)));
+        return newEntity(
+            entityName,
+            EntityModel(EntityAIGroup),
+            EntityPosition3D(startPos, 0.1f),
+            EntityDestination3D(dest, false),
+            EntityPathfinding(Path(startPos, dest), graph)
+        );
+    };
+
+    auto randomColor = []() -> vec3 {
+
+        float red = (rand() % 256) / 255.f;
+        float green = (rand() % 256) / 255.f;
+        float blue = (rand() % 256) / 255.f;
+
+        return vec3(red, green, blue);
+
+    };
+
+    auto randomPos = [](int minX, int maxX, int minZ, int maxZ) -> vec3 {
+
+        float X = (rand() % abs(minX - maxX)) + minX;
+        float Z = (rand() % abs(minZ - maxZ)) + minZ;
+
+        return vec3(X, 0, Z);
+
+    };
+
+    srand(time(NULL));
+    int N = 500;
+    EntityRef entities[N];
+    for(int i = 0; i < N; i++) {
+        entities[i] = makeEntityAI(
+            "entity" + std::to_string(i), 
+            randomPos(0, graphSize, 0, graphSize), 
+            randomPos(0, graphSize, 0, graphSize),
+            randomColor(),
+            graph
+        );
+    }
 
     /* Main Loop */
     while (state != AppState::quit)
@@ -450,15 +471,40 @@ void Game::mainloop()
         screenBuffer2D.bindTexture(0, 7);
         globals.drawFullscreenQuad();
 
+        // Parse path
+        System<EntityPosition3D, EntityDestination3D, EntityPathfinding>([](Entity &entity){
+            auto &pos = entity.comp<EntityPosition3D>();
+            auto &dest = entity.comp<EntityDestination3D>();
+            auto &path = entity.comp<EntityPathfinding>();
+
+            if(path.path->size() > 0 && !dest.hasDestination) {
+
+                // path.path.print();
+                dest.hasDestination = true;
+                path.path.setStart(path.path->at(0));
+                path.path->pop_front();
+                dest.destination = path.path.getStart();
+                // std::cout << dest.destination[0] << " " << dest.destination[1] << " " << dest.destination[2] << "\n";
+            }
+        });
+
         // Move towards goal
         System<EntityPosition3D, EntityDestination3D>([](Entity &entity){
             auto &pos = entity.comp<EntityPosition3D>();
             auto &dest = entity.comp<EntityDestination3D>();
 
-            // CLAMP THE DISTANCE YEP
             if(dest.hasDestination) {
+                // std::cout << dest.destination[0] << " " << dest.destination[1] << " " << dest.destination[2] << "\n";
+                // std::cout << pos.position[0] << " " << pos.position[1] << " " << pos.position[2] << "\n";
+                float distanceToDest = length(dest.destination - pos.position);
                 pos.direction = normalize(dest.destination - pos.position);
-                pos.position += pos.speed*pos.direction;
+                float stepLength = length(pos.speed*pos.direction);
+                if(distanceToDest < stepLength) {
+                    pos.position = dest.destination;
+                    dest.hasDestination = false;
+                } else {
+                    pos.position += pos.speed*pos.direction;
+                }
             }
         });
 

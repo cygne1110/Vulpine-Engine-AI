@@ -1,0 +1,10 @@
+Graph format:
+header:
+    - 4 bytes: magic number (VNAV)
+    - 4 bytes: number of nodes (int)
+node information, repeated for each nodes:
+    - node id is the number of nodes read before this one (first node is node 0, second is node 1) (int)
+    - 12 bytes: node position (vec3<float>)
+    - 4 bytes: number of neighbors (int)
+    neighbor, repeated for each neigbors:
+        - 4 bytes: neighbor id
